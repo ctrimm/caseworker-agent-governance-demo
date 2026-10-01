@@ -252,16 +252,16 @@ def a_steps():
     to_gate = [(322, A_ROW), (388, A_ROW)]
     to_tools = [(534, A_ROW), (598, A_ROW)]
 
-    add(once(caption="Caseworker: draft an eligibility summary for case C-1001", lit={"case": BLUE}))
+    add(once(caption="Caseworker: draft an eligibility summary for case C-1003", lit={"case": BLUE}))
     add(hold(1.3))
-    add((0.6, lambda p, s: s.update(packet=(lerp(148, 190, ease(p)), A_ROW, "C-1001", BLUE))))
+    add((0.6, lambda p, s: s.update(packet=(lerp(148, 190, ease(p)), A_ROW, "C-1003", BLUE))))
     add(once(packet=None, lit={"agent": BLUE}))
 
     add(once(caption="Agent proposes: read_client_file"))
     move(to_gate, "read_client_file")
     add(once(caption="Gate: declared tool, correct case. Allow."))
     verdict("ALLOW")
-    log("read_client_file(C-1001)", "ALLOW", "needs intake notes first")
+    log("read_client_file(C-1003)", "ALLOW", "needs intake notes first")
     add(once(badge=None, lit={}, caption="Tool runs. Result goes back to the agent."))
     move(to_tools, "read_client_file", GREEN)
     ret()

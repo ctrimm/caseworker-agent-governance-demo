@@ -18,6 +18,9 @@ class Audit:
         event = {"seq": len(self.events) + 1, "ts": round(time.time(), 3), **fields}
         if "args" in fields:
             event["args"] = json.loads(self.redact(json.dumps(fields["args"])))
+        for key in ("why", "reason"):  # the agent's rationale can quote the case file too
+            if isinstance(fields.get(key), str):
+                event[key] = self.redact(fields[key])
         self.events.append(event)
         if self.path:
             with self.path.open("a") as f:

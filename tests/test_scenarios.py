@@ -67,6 +67,14 @@ class TestScenarios(unittest.TestCase):
         self.assertNotIn("000-12-3456", blob)
         self.assertTrue(all(e.get("why") for e in r.events if e["kind"] == "tool_call"))
 
+    def test_audit_log_redacts_pii_in_the_why(self):
+        g = Gate(AGENT, REG, REG / "org-baseline.yaml", "C-1001")
+        a = Audit(redact=g.redact)
+        a.log(kind="tool_call", why="Notes list SSN 000-12-3456", reason="called 555-010-0142")
+        blob = json.dumps(a.events)
+        self.assertNotIn("000-12-3456", blob)
+        self.assertNotIn("555-010-0142", blob)
+
 
 class TestRedHerring(unittest.TestCase):
     def test_rubber_stamp_misses_what_attentive_catches(self):
