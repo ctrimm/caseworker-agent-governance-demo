@@ -46,6 +46,34 @@ Run one scenario with `python run_demo.py injection`. Add `--reviewer reject` to
 Every proposal takes one path: planner proposes, gate decides (allow, deny, require approval, halt),
 allowed calls run, and every decision lands in the audit log.
 
+## Why Agent Format and not Microsoft Agent Framework YAML
+
+The gate enforces what the agent file declares. That only works if the file can declare the
+guardrails. [Agent Format](https://github.com/agent-format/agent-format-schema) (from Snap) can.
+Microsoft Agent Framework's declarative YAML, built on
+[AgentSchema](https://github.com/microsoft/AgentSchema), mostly cannot.
+
+| What the gate needs | Agent Format | Microsoft declarative YAML |
+|---|---|---|
+| Approval on a local tool, conditional on its arguments | `approval` with `args_match` and `message_template` | None for function tools. Only MCP tools have `approvalMode` (always / never / a list of tool names), with no argument conditions. |
+| Run limits | `limits.max_llm_calls`, `max_tool_calls`, `max_delegation_depth` | None. The only cap is the model's `maxOutputTokens`. |
+| Budget | `budget.max_duration_seconds`, `max_token_usage` | None |
+| A policy the agent cannot start without | `governance_policies[]` with `required: true` | `policies` holds only an Azure content-safety reference (`rai_policy` plus a resource ID), with no `required` flag. The Python loader we checked (`agent-framework-declarative` 1.1.0) does not read it. |
+| Layers can only tighten, never loosen | `tighten_only_invariant` | None |
+| Validation in a test | Official JSON schema, copied into `schema/` | Schemas are published in the AgentSchema repo (`schemas/v1.0`), in YAML |
+
+Microsoft's format is stronger where it aims: typed tool parameters, input and output schemas,
+model connections, and MCP, OpenAPI and hosted tools. It describes how the agent is wired. It is not
+built to carry how the agent is constrained.
+
+On Microsoft's format this demo would still run, but most of its rules would move out of the agent
+file and into this toy's own policy files. The `loop` and `failclosed` scenarios, and the
+argument-based approval, would have no spec field behind them. That supports the main point here
+too: guardrails belong in a layer the model cannot touch, and you should check whether your agent
+format can express them before you rely on it.
+
+This comparison reflects both projects as of October 2026. Both are moving quickly.
+
 ## What this is not
 
 - **Not a conformant Agent Format runtime.** It reads a handful of the spec's fields and borrows the
