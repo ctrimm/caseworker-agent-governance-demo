@@ -1,0 +1,9 @@
+This repository vendors one third-party file:
+
+  schema/agentformat-schema.json
+  From https://github.com/agent-format/agent-format-schema
+  Copyright 2026 Snap Inc. and The Agent Format Authors
+  Licensed under the Apache License, Version 2.0 (see schema/LICENSE-agent-format).
+  The file is included unmodified.
+
+The Agent Format specification text and documentation are licensed CC-BY-4.0 by their authors.

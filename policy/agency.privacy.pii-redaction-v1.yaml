@@ -1,0 +1,8 @@
+# Resolved from the agent file's constraints.governance_policies[].policy_ref.
+# The agent file marks this policy required: true, so if this file is missing
+# the runtime refuses to start the agent (fail closed).
+name: agency.privacy.pii-redaction-v1
+redact:
+  SSN: '\b\d{3}-\d{2}-\d{4}\b'
+  PHONE: '\b\d{3}[-.]\d{3}[-.]\d{4}\b'
+  DOB: '\b(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])/(?:19|20)\d{2}\b'

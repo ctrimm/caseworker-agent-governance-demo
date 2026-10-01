@@ -1,0 +1,14 @@
+# Org-level baseline. Always applied by the runtime, on top of whatever the agent declares.
+# This is the toy's own format, NOT the Microsoft Agent Governance Toolkit's policy syntax.
+# Rules here can only add restrictions. An agent file can never loosen them.
+name: org-baseline
+deny_tools:
+  - write_record
+  - delete_client
+  - approve_payout
+  - send_letter
+approval_tools: []
+scope:
+  # A tool argument that must equal the case the session was opened for.
+  read_client_file:
+    arg: case_id

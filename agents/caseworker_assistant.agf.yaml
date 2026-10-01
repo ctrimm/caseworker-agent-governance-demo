@@ -1,0 +1,49 @@
+schema_version: "1.0.0"
+
+metadata:
+  id: caseworker_assistant
+  name: Caseworker Assistant
+  version: "0.1.0"
+  description: Drafts eligibility summaries for a caseworker to review
+  data_classification: restricted
+
+interface:
+  input:
+    type: string
+    description: Intake notes for a single case
+  output:
+    type: string
+    description: A draft summary. Never a determination.
+
+constraints:
+  tighten_only_invariant: true
+  budget:
+    max_token_usage: 25000
+    max_duration_seconds: 120
+  limits:
+    max_llm_calls: 8
+    max_tool_calls: 12
+    max_delegation_depth: 0
+  governance_policies:
+    - policy_ref: agency.privacy.pii-redaction-v1
+      required: true
+
+action_space:
+  local_tools:
+    - alias: read_client_file
+      description: Read-only, scoped to one case ID
+    - alias: calculate_income_threshold
+      description: Deterministic calculator, no LLM involved
+    - alias: draft_determination_letter
+      description: Drafts text only. Cannot send or commit.
+      approval:
+        message_template: "Approve this draft letter before it goes anywhere?"
+
+execution_policy:
+  id: agf.react
+  config:
+    instructions: |
+      Summarize the intake notes. Use tools for anything numeric.
+      If the data is missing or contradictory, say so and stop.
+    model: your-model-here
+    max_steps: 8
