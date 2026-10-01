@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caseworker Gate Walkthrough</title>
+<meta name="description" content="Step through real runs of a deterministic gate between a scripted caseworker agent and its tools.">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>Every proposal goes through the gate</h1>
+    <p class="lede">A scripted caseworker agent proposes tool calls. A deterministic gate, with no model in it,
+      decides each one: allow, deny, hold for a human, or halt. Every step below is played back from a real
+      run of the code in this repo.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="scenarios" id="scenarios" aria-label="Scenario"></nav>
+
+  <section class="intro" id="intro" aria-live="polite"></section>
+
+  <div class="toolbar">
+    <div class="player" role="group" aria-label="Playback">
+      <button id="restart" type="button" aria-label="Restart">⟲</button>
+      <button id="back" type="button" aria-label="Previous step">←</button>
+      <button id="play" type="button" class="primary" aria-label="Play">Play</button>
+      <button id="next" type="button" aria-label="Next step">→</button>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="switches">
+      <div class="reviewer" id="reviewer" role="group" aria-label="Caseworker decision">
+        <span>Caseworker</span>
+        <button type="button" data-rev="approve" aria-pressed="true">approves</button>
+        <button type="button" data-rev="reject" aria-pressed="false">rejects</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="advanced"> <span>Advanced: show every gate check</span></label>
+    </div>
+  </div>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+
+  <div class="stage">
+    <div class="main-col">
+      <div class="diagram" id="diagram">
+        <div class="canvas">
+        <div id="diagram-base"></div>
+        <svg class="overlay" viewBox="0 0 780 350" aria-hidden="true"><g id="packet" class="packet" style="opacity:0"><rect x="-28" y="-14" width="56" height="28" rx="10"/><text x="0" y="5" text-anchor="middle"></text></g></svg>
+        </div>
+      </div>
+      <div class="herring" id="herring" hidden></div>
+      <div class="caption" id="caption" aria-live="polite"></div>
+    </div>
+    <aside class="side-col">
+      <h2>Audit log <small>records the why, not just the what</small></h2>
+      <ol class="audit" id="audit"></ol>
+    </aside>
+  </div>
+
+  <section class="advanced" id="adv" hidden></section>
+
+  <footer class="foot">
+    <p>Run it yourself: <code>pip install -r requirements.txt && python run_demo.py all</code>.
+      This page reads <code>docs/traces.js</code>, written by <code>python export_traces.py</code>.
+      All data is invented. Keys: <kbd>←</kbd> <kbd>→</kbd> step, <kbd>Space</kbd> play or pause.</p>
+  </footer>
+</main>
+
+<script src="traces.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -35,10 +35,28 @@ def show(result, gate):
     print(f"  -> dangerous tools that actually ran: {DANGER or 'none'}")
 
 
-def session(name, planner_fn, case_id, reviewer="approve", after_step=None, registry=REGISTRY):
+# key -> (title, planner, case_id, extra session kwargs). The web walkthrough exports these same runs.
+SCENARIOS = {
+    "happy": ("happy path: read, calculate, draft, human approves", careful_planner, "C-1001", {}),
+    "injection": ("injection: notes try to hijack the agent", hijacked_planner, "C-1003", {}),
+    "messy": ("messy data: income missing, agent stops", careful_planner, "C-1002", {}),
+    "loop": ("runaway loop: run limit trips", looping_planner, "C-1001", {}),
+    "killswitch": ("kill switch: operator halts after step 1", careful_planner, "C-1001",
+                   {"after_step": lambda n, g: g.halt() if n == 1 else None}),
+    "failclosed": ("fail closed: required policy missing", careful_planner, "C-1001", {"missing_policy": True}),
+}
+
+
+def failclosed_registry():
+    tmp = Path(tempfile.mkdtemp())
+    shutil.copy(ORG, tmp / ORG.name)  # org baseline present, required privacy policy missing
+    return tmp
+
+
+def session(name, planner_fn, case_id, reviewer="approve", after_step=None, missing_policy=False):
     print(f"\n=== {name} (case {case_id}) ===")
     try:
-        gate = Gate(AGENT, registry, ORG, case_id)
+        gate = Gate(AGENT, failclosed_registry() if missing_policy else REGISTRY, ORG, case_id)
     except PolicyUnresolved as e:
         print(f"  [REFUSED         ] {e}")
         return
@@ -56,21 +74,9 @@ def main():
     a = p.parse_args()
     run = lambda s: a.scenario in (s, "all")
 
-    if run("happy"):
-        session("happy path: read, calculate, draft, human approves", careful_planner, "C-1001", a.reviewer)
-    if run("injection"):
-        session("injection: notes try to hijack the agent", hijacked_planner, "C-1003", a.reviewer)
-    if run("messy"):
-        session("messy data: income missing, agent stops", careful_planner, "C-1002", a.reviewer)
-    if run("loop"):
-        session("runaway loop: run limit trips", looping_planner, "C-1001", a.reviewer)
-    if run("killswitch"):
-        session("kill switch: operator halts after step 1", careful_planner, "C-1001", a.reviewer,
-                after_step=lambda n, g: g.halt() if n == 1 else None)
-    if run("failclosed"):
-        tmp = Path(tempfile.mkdtemp())
-        shutil.copy(ORG, tmp / ORG.name)  # org baseline present, required privacy policy missing
-        session("fail closed: required policy missing", careful_planner, "C-1001", a.reviewer, registry=tmp)
+    for key, (title, planner_fn, case_id, extra) in SCENARIOS.items():
+        if run(key):
+            session(title, planner_fn, case_id, a.reviewer, **extra)
     if run("redherring"):
         print("\n=== red herring test (SIMULATION, not real reviewer data) ===")
         queue = rv.build_queue()

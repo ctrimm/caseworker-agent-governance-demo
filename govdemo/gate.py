@@ -103,8 +103,10 @@ class Gate:
         self.tool_calls = 0
         self.halted = False
         self.halt_reason = ""
+        self.checks: list[dict] = []  # rules evaluated for the latest call, in order (for tracing only)
 
         org = yaml.safe_load(Path(org_policy_path).read_text())
+        self.policies_loaded = [org.get("name", Path(org_policy_path).stem)]
         self.deny_tools = set(org.get("deny_tools", []))
         self.org_approval = set(org.get("approval_tools", []))
         self.scope = dict(org.get("scope", {}))
@@ -122,6 +124,7 @@ class Gate:
             self.org_approval |= set(pol.get("approval_tools", []))
             self.scope.update(pol.get("scope", {}))
             self.redactions.update(pol.get("redact", {}))
+            self.policies_loaded.append(ref["policy_ref"])
 
     # kill switch
     def halt(self, reason="kill switch pulled by operator"):
@@ -133,37 +136,56 @@ class Gate:
             text = re.sub(pattern, f"[REDACTED:{name}]", text)
         return text
 
+    def _passed(self, rule: str, detail: str):
+        self.checks.append({"rule": rule, "result": "pass", "detail": detail})
+
+    def _decide(self, d: Decision) -> Decision:
+        self.checks.append({"rule": d.rule, "result": d.verdict, "detail": d.reason})
+        return d
+
     def before_llm_call(self):
         """Called before every model step. Returns a HALT decision or None."""
+        self.checks = []
         if self.halted:
-            return Decision(HALT, "kill-switch", self.halt_reason)
+            return self._decide(Decision(HALT, "kill-switch", self.halt_reason))
+        self._passed("kill-switch", "not pulled")
         self.llm_calls += 1
         cap = self.limits.get("max_llm_calls")
         if cap is not None and self.llm_calls > cap:
-            return Decision(HALT, "limits.max_llm_calls", f"more than {cap} model calls in one run")
+            return self._decide(Decision(HALT, "limits.max_llm_calls", f"more than {cap} model calls in one run"))
+        self._passed("limits.max_llm_calls", f"model call {self.llm_calls} of {cap}")
         return None
 
     def check(self, tool: str, args: dict) -> Decision:
+        """Rules run in order. The first one that objects decides; later rules are not evaluated."""
+        self.checks = []
         if self.halted:
-            return Decision(HALT, "kill-switch", self.halt_reason)
+            return self._decide(Decision(HALT, "kill-switch", self.halt_reason))
+        self._passed("kill-switch", "not pulled")
         max_s = self.budget.get("max_duration_seconds")
-        if max_s is not None and self.clock() - self.start > max_s:
-            return Decision(HALT, "budget.max_duration_seconds", f"run exceeded {max_s}s")
+        elapsed = self.clock() - self.start
+        if max_s is not None and elapsed > max_s:
+            return self._decide(Decision(HALT, "budget.max_duration_seconds", f"run exceeded {max_s}s"))
+        self._passed("budget.max_duration_seconds", f"{elapsed:.0f}s of {max_s}s used")
         self.tool_calls += 1
         cap = self.limits.get("max_tool_calls")
         if cap is not None and self.tool_calls > cap:
-            return Decision(HALT, "limits.max_tool_calls", f"more than {cap} tool calls in one run")
+            return self._decide(Decision(HALT, "limits.max_tool_calls", f"more than {cap} tool calls in one run"))
+        self._passed("limits.max_tool_calls", f"tool call {self.tool_calls} of {cap}")
 
         if tool not in self.tools:
-            return Decision(DENY, "default-deny", f"'{tool}' is not in this agent's action_space")
+            return self._decide(Decision(DENY, "default-deny", f"'{tool}' is not in this agent's action_space"))
+        self._passed("default-deny", f"'{tool}' is declared in action_space")
         if tool in self.deny_tools:
-            return Decision(DENY, "org.deny_tools", f"'{tool}' is blocked by org policy")
+            return self._decide(Decision(DENY, "org.deny_tools", f"'{tool}' is blocked by org policy"))
+        self._passed("org.deny_tools", f"'{tool}' is not on the org deny list")
         rule = self.scope.get(tool)
         if rule and args.get(rule["arg"]) != self.case_id:
-            return Decision(
+            return self._decide(Decision(
                 DENY, "org.scope",
                 f"{rule['arg']}={args.get(rule['arg'])!r} is outside this session's case {self.case_id!r}",
-            )
+            ))
+        self._passed("org.scope", f"{rule['arg']} matches case {self.case_id!r}" if rule else "no scope rule for this tool")
 
         spec = self.tools[tool].get("approval")
         agent_says = approval_required(spec, args)
@@ -171,6 +193,7 @@ class Gate:
         if agent_says or org_says:
             template = spec.get("message_template") if isinstance(spec, dict) else None
             why = "org policy" if org_says and not agent_says else "agent file"
-            return Decision(APPROVE, "approval", f"approval required by {why}",
-                            render_message(template, tool, args))
-        return Decision(ALLOW, "allow-listed", "tool is declared and no rule objects")
+            return self._decide(Decision(APPROVE, "approval", f"approval required by {why}",
+                                         render_message(template, tool, args)))
+        self._passed("approval", "neither the agent file nor org policy requires a human")
+        return self._decide(Decision(ALLOW, "allow-listed", "tool is declared and no rule objects"))

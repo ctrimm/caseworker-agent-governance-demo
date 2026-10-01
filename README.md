@@ -19,6 +19,19 @@ python -m unittest discover -s tests -t .
 
 Run one scenario with `python run_demo.py injection`. Add `--reviewer reject` to see the human say no.
 
+## Step through it in a browser
+
+`docs/index.html` is a small web walkthrough of the same story as the GIF, for every scenario. Use the
+step buttons, the arrow keys, or Play. Turn on **Advanced** to see every rule the gate evaluated for each
+step, where each rule comes from, the run budgets, the audit event, and the config files the gate read.
+
+- Online: https://ctrimm.github.io/caseworker-agent-governance-demo/ (GitHub Pages, served from `docs/` on `main`)
+- Locally: open `docs/index.html` in a browser. No server or build step needed.
+
+The page is not hand-scripted. It plays back `docs/traces.js`, which `python export_traces.py` writes from
+real runs of the gate, planners, and policies. After changing any of those, re-run the exporter;
+`tests/test_traces.py` fails if the page data is stale.
+
 ## What each scenario demonstrates
 
 | Scenario | What happens | Post lesson |
@@ -42,6 +55,7 @@ Run one scenario with `python run_demo.py injection`. Add `--reviewer reject` to
 - `govdemo/agent.py` has the scripted planners and the loop that routes every proposal through the gate.
 - `govdemo/audit.py` writes the why (the agent's stated rationale) next to the what. PII is redacted before logging.
 - `govdemo/review.py` is the red herring simulation.
+- `export_traces.py` records real runs for the web walkthrough in `docs/` (`index.html`, `app.js`, `app.css`).
 
 Every proposal takes one path: planner proposes, gate decides (allow, deny, require approval, halt),
 allowed calls run, and every decision lands in the audit log.
